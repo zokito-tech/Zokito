@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Yıldız Savaşı</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{margin:0;height:100%;background:#05050f;overflow:hidden;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#eaf2ff}
+body{display:flex;align-items:center;justify-content:center}
+#wrap{position:relative;width:min(100vw,calc(100dvh*9/16));aspect-ratio:9/16;max-height:100%}
+canvas{width:100%;height:100%;display:block;touch-action:none;background:#07071a}
+#ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;background:radial-gradient(#050514aa,#050514ee)}
+#ov h1{margin:0 0 8px;font-size:clamp(28px,9vw,44px);letter-spacing:3px;background:linear-gradient(#fff,#6fd0ff 60%,#8a6bff);-webkit-background-clip:text;background-clip:text;color:transparent;text-transform:uppercase}
+#ov p{margin:0 0 22px;color:#9fb0d0;line-height:1.5;font-size:15px;max-width:290px}
+#ov button{font:inherit;font-size:18px;font-weight:600;padding:12px 34px;border:0;border-radius:30px;color:#04101c;background:linear-gradient(#8ff0ff,#39a8ff);box-shadow:0 0 24px #39a8ff88;cursor:pointer}
+#ov button:focus-visible{outline:3px solid #fff}
+#mute{position:absolute;top:8px;right:8px;width:38px;height:38px;border:0;border-radius:50%;background:#ffffff1c;color:#fff;font-size:18px;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="wrap">
+<canvas id="c" width="720" height="1280"></canvas>
+<button id="mute" aria-label="Ses">🔊</button>
+<div id="ov"></div>
+</div>
+<script>
+const cv=document.getElementById('c'),x=cv.getContext('2d'),W=360,H=640;x.scale(2,2);
+const ov=document.getElementById('ov'),muteB=document.getElementById('mute');
+let state='menu',sc=0,hi=0,lives=3,t=0,wl=1,shield=0,shake=0,flash=0,fireT=0,spawnT=1,P,E=[],PB=[],EB=[],PU=[],PT=[],muted=false;
+try{hi=+localStorage.getItem('ys_hi')||0}catch(e){}
+const K={};let firing=false;
+
+// ---------- Ses (Web Audio, harici dosya yok) ----------
+let ac,master,nb;
+function initAudio(){if(ac){ac.resume&&ac.resume();return}try{ac=new(window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.gain.value=.5;master.connect(ac.destination)}catch(e){}}
+function tone(f1,f2,d,type,v){if(!ac||muted)return;const s=ac.currentTime,o=ac.createOscillator(),g=ac.createGain();o.type=type;o.frequency.setValueAtTime(f1,s);o.frequency.exponentialRampToValueAtTime(Math.max(20,f2),s+d);g.gain.setValueAtTime(v,s);g.gain.exponentialRampToValueAtTime(.001,s+d);o.connect(g);g.connect(master);o.start(s);o.stop(s+d)}
+function noise(d,v,f){if(!ac||muted)return;if(!nb){nb=ac.createBuffer(1,ac.sampleRate*.7,ac.sampleRate);const a=nb.getChannelData(0);for(let i=0;i<a.length;i++)a[i]=Math.random()*2-1}
+  const s=ac.currentTime,n=ac.createBufferSource(),fl=ac.createBiquadFilter(),g=ac.createGain();n.buffer=nb;fl.type='lowpass';fl.frequency.setValueAtTime(f,s);fl.frequency.exponentialRampToValueAtTime(100,s+d);g.gain.setValueAtTime(v,s);g.gain.exponentialRampToValueAtTime(.001,s+d);n.connect(fl);fl.connect(g);g.connect(master);n.start(s);n.stop(s+d)}
+const SFX={shoot:()=>tone(900,240,.08,'square',.035),boom:()=>noise(.4,.35,1800),big:()=>{noise(.7,.5,1200);tone(120,30,.5,'sawtooth',.2)},
+  hit:()=>{tone(220,60,.25,'sawtooth',.2);noise(.25,.3,900)},tick:()=>tone(500,300,.04,'triangle',.05),
+  power:()=>[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,f,.12,'triangle',.12),i*70)),
+  over:()=>[400,320,240,160].forEach((f,i)=>setTimeout(()=>tone(f,f*.8,.3,'sawtooth',.15),i*220))};
+let mi=0;setInterval(()=>{if(state!=='play')return;const n=[55,55,82,73,55,55,98,82][mi++%8];tone(n,n,.2,'triangle',.1)},230);
+muteB.onclick=()=>{muted=!muted;muteB.textContent=muted?'🔇':'🔊'};
+
+// ---------- Hazır çizimler (performans için bir kez) ----------
+function glow(c,r){const s=document.createElement('canvas');s.width=s.height=r*2;const g=s.getContext('2d'),q=g.createRadialGradient(r,r,0,r,r,r);q.addColorStop(0,c);q.addColorStop(.4,c.replace('1)','.35)'));q.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=q;g.fillRect(0,0,r*2,r*2);return s}
+const GL={c:glow('rgba(110,215,255,1)',24),r:glow('rgba(255,80,90,1)',20),o:glow('rgba(255,160,70,1)',32),y:glow('rgba(255,225,100,1)',28),g:glow('rgba(90,255,160,1)',24),p:glow('rgba(150,100,255,1)',150),b:glow('rgba(60,140,255,1)',150)};
+const BG=(()=>{const c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d'),l=g.createLinearGradient(0,0,0,H);l.addColorStop(0,'#05061a');l.addColorStop(.6,'#120a2c');l.addColorStop(1,'#0a1a36');g.fillStyle=l;g.fillRect(0,0,W,H);
+  g.globalAlpha=.3;g.drawImage(GL.p,-60,60,300,300);g.drawImage(GL.b,150,300,300,300);g.drawImage(GL.p,100,480,260,260);return c})();
+const VG=(()=>{const c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d'),r=g.createRadialGradient(W/2,H/2,H*.3,W/2,H/2,H*.72);r.addColorStop(0,'rgba(0,0,0,0)');r.addColorStop(1,'rgba(0,0,0,.55)');g.fillStyle=r;g.fillRect(0,0,W,H);return c})();
+const stars=[];for(let i=0;i<90;i++){const l=i%3;stars.push({x:Math.random()*W,y:Math.random()*H,s:.8+l*.7,sp:20+l*45})}
+const poly=(p,c,s)=>{x.beginPath();p.forEach((q,i)=>i?x.lineTo(q[0],q[1]):x.moveTo(q[0],q[1]));x.closePath();x.fillStyle=c;x.fill();if(s){x.strokeStyle=s;x.lineWidth=1.5;x.stroke()}};
+const gl=(k,px,py,r,a)=>{x.globalAlpha=a==null?1:a;x.drawImage(GL[k],px-r,py-r,r*2,r*2);x.globalAlpha=1};
+
+// ---------- Oyun ----------
+function start(){hideOv();firing=false;sc=0;lives=3;t=0;wl=1;shield=0;E=[];PB=[];EB=[];PU=[];PT=[];spawnT=1;fireT=0;P={x:W/2,y:520,tx:W/2,ty:520,inv:1};state='play'}
+function fire(){const b=(dx,vx)=>PB.push({x:P.x+dx,y:P.y-18,vx,vy:-640});b(0,0);if(wl>=2){b(-9,-35);b(9,35)}if(wl>=3){b(-16,-130);b(16,130)}SFX.shoot()}
+function spawn(){const r=Math.random(),k=t>25&&r<.15?'tank':t>10&&r<.35?'shoot':r<.6?'zig':'drone';
+  const d={drone:[1,13,90],zig:[2,13,70],shoot:[3,15,70],tank:[8,22,38]}[k],hp=d[0]+(t>60?1:0),px=30+Math.random()*(W-60);
+  E.push({k,x:px,bx:px,y:-30,hp,max:hp,r:d[1],vy:d[2]*(1+t*.003),ph:Math.random()*6,ft:1+Math.random(),fl:0})}
+function aim(e){const n=e.k==='tank'?[-.25,0,.25]:[0],a=Math.atan2(P.y-e.y,P.x-e.x);for(const o of n)EB.push({x:e.x,y:e.y+8,vx:Math.cos(a+o)*175,vy:Math.sin(a+o)*175})}
+function explode(px,py,n){for(let i=0;i<n;i++){const a=Math.random()*6.283,s=40+Math.random()*220;PT.push({x:px,y:py,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:.4+Math.random()*.5,m:.9,g:Math.random()<.5?'o':'y',s:8+Math.random()*12})}
+  PT.push({x:px,y:py,ring:1,r:4,l:.35,m:.35});if(PT.length>260)PT.splice(0,PT.length-260)}
+function kill(e,ram){sc+=({drone:10,zig:20,shoot:35,tank:80})[e.k];explode(e.x,e.y,e.k==='tank'?32:16);e.k==='tank'?SFX.big():SFX.boom();shake=Math.max(shake,e.k==='tank'?6:2);
+  if(!ram&&Math.random()<.15)PU.push({x:e.x,y:e.y,k:['w','s','h'][Math.random()*3|0]})}
+function hurt(){if(P.inv>0)return;if(shield){shield=0;P.inv=.8;SFX.hit();explode(P.x,P.y,8);return}
+  lives--;P.inv=1.6;shake=10;flash=.25;wl=Math.max(1,wl-1);SFX.hit();if(lives<=0)gameOver()}
+function gameOver(){state='over';explode(P.x,P.y,60);SFX.big();setTimeout(SFX.over,500);
+  if(sc>hi){hi=sc;try{localStorage.setItem('ys_hi',hi)}catch(e){}}
+  setTimeout(()=>{if(state==='over')showOv('Oyun bitti','Skor: '+sc+' · Rekor: '+hi,'Tekrar oyna',start)},1100)}
+
+function update(dt){
+  t+=dt;P.x+=(P.tx-P.x)*Math.min(1,dt*14);P.y+=(P.ty-P.y)*Math.min(1,dt*14);P.inv-=dt;
+  const sp=320*dt;if(K.ArrowLeft||K.KeyA)P.tx-=sp;if(K.ArrowRight||K.KeyD)P.tx+=sp;if(K.ArrowUp||K.KeyW)P.ty-=sp;if(K.ArrowDown||K.KeyS)P.ty+=sp;
+  P.tx=Math.max(20,Math.min(W-20,P.tx));P.ty=Math.max(70,Math.min(H-30,P.ty));
+  fireT-=dt;if(fireT<=0&&(firing||K.Space)){fireT=.17;fire()}
+  spawnT-=dt;if(spawnT<=0){spawnT=Math.max(.32,1.1-t*.008);spawn()}
+  for(let i=PB.length-1;i>=0;i--){const b=PB[i];b.x+=b.vx*dt;b.y+=b.vy*dt;if(b.y<-20||b.x<-20||b.x>W+20)PB.splice(i,1)}
+  for(let i=EB.length-1;i>=0;i--){const b=EB[i];b.x+=b.vx*dt;b.y+=b.vy*dt;if(b.y>H+20||b.y<-20||b.x<-20||b.x>W+20){EB.splice(i,1);continue}
+    if(Math.hypot(b.x-P.x,b.y-P.y)<13){EB.splice(i,1);hurt()}}
+  for(let i=E.length-1;i>=0;i--){const e=E[i];e.fl-=dt;
+    if(e.k==='zig'){e.y+=e.vy*dt;e.x=e.bx+Math.sin(t*3+e.ph)*60}
+    else if(e.k==='drone'){e.y+=e.vy*dt;e.x=e.bx+Math.sin(t*1.5+e.ph)*20}
+    else if(e.k==='shoot'){e.y+=e.y<110?e.vy*2*dt:6*dt;e.x=e.bx+Math.sin(t+e.ph)*50}
+    else{e.y+=e.vy*dt;e.x=e.bx+Math.sin(t*.8+e.ph)*30}
+    if((e.k==='shoot'||e.k==='tank')&&e.y>0&&e.y<H-150){e.ft-=dt;if(e.ft<=0){e.ft=e.k==='tank'?1.8:1.3;aim(e)}}
+    if(e.y>H+40){E.splice(i,1);continue}
+    let dead=false;
+    for(let j=PB.length-1;j>=0;j--){const b=PB[j];if(Math.hypot(b.x-e.x,b.y-e.y)<e.r+5){PB.splice(j,1);e.hp--;e.fl=.08;SFX.tick();
+      PT.push({x:b.x,y:b.y,vx:(Math.random()-.5)*120,vy:(Math.random()-.5)*120,l:.2,m:.2,g:'y',s:8});if(e.hp<=0){kill(e);dead=true;break}}}
+    if(!dead&&Math.hypot(P.x-e.x,P.y-e.y)<e.r+11){hurt();kill(e,1);dead=true}
+    if(dead)E.splice(i,1)}
+  for(let i=PU.length-1;i>=0;i--){const p=PU[i];p.y+=70*dt;if(p.y>H+20){PU.splice(i,1);continue}
+    if(Math.hypot(p.x-P.x,p.y-P.y)<24){PU.splice(i,1);SFX.power();sc+=50;if(p.k==='w')wl=Math.min(3,wl+1);else if(p.k==='s')shield=1;else lives=Math.min(5,lives+1)}}
+}
+function fx(dt){
+  for(const s of stars){s.y+=s.sp*dt*(state==='play'?1:.4);if(s.y>H){s.y=-4;s.x=Math.random()*W}}
+  for(let i=PT.length-1;i>=0;i--){const p=PT[i];p.l-=dt;if(p.l<=0){PT.splice(i,1);continue}if(p.ring)p.r+=300*dt;else{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.98;p.vy*=.98}}
+  shake=Math.max(0,shake-dt*30);flash=Math.max(0,flash-dt);
+}
+
+// ---------- Çizim ----------
+function drawEnemy(e){x.save();x.translate(e.x,e.y);const f=e.fl>0;
+  if(e.k==='drone'){poly([[0,14],[12,4],[10,-10],[0,-14],[-10,-10],[-12,4]],f?'#fff':'#8a4fff','#d6b8ff');x.fillStyle='#ff4d6d';x.beginPath();x.arc(0,0,4,0,6.283);x.fill()}
+  else if(e.k==='zig'){poly([[0,15],[14,-10],[0,-4],[-14,-10]],f?'#fff':'#ff8a3d','#ffd0a0');x.fillStyle='#fff3';x.fillRect(-2,-2,4,8)}
+  else if(e.k==='shoot'){x.fillStyle=f?'#fff':'#2fbf7a';x.beginPath();x.arc(0,0,15,0,6.283);x.fill();x.strokeStyle='#a8ffd4';x.lineWidth=2;x.stroke();x.fillStyle='#fff';x.beginPath();x.arc(0,2,6,0,6.283);x.fill();x.fillStyle='#103';x.beginPath();x.arc(0,3,3,0,6.283);x.fill()}
+  else{poly([[-10,-22],[10,-22],[22,-8],[22,8],[10,22],[-10,22],[-22,8],[-22,-8]],f?'#fff':'#5b6f8f','#a8c0e8');x.fillStyle='#2b3850';x.fillRect(-5,-10,10,26);x.fillStyle='#ff4d6d';x.beginPath();x.arc(0,-2,5,0,6.283);x.fill()}
+  x.restore();
+  if(e.hp<e.max){x.fillStyle='#0008';x.fillRect(e.x-14,e.y-e.r-9,28,4);x.fillStyle='#ff4d6d';x.fillRect(e.x-13,e.y-e.r-8,26*e.hp/e.max,2)}}
+function drawPlayer(){if(P.inv>0&&Math.floor(t*14)%2)return;x.save();x.translate(P.x,P.y);
+  const fl=10+Math.random()*9;poly([[-5,14],[5,14],[0,14+fl]],'#ffb347');poly([[-2.5,14],[2.5,14],[0,14+fl*.55]],'#fff7d0');
+  const g=x.createLinearGradient(0,-22,0,16);g.addColorStop(0,'#f2fbff');g.addColorStop(1,'#3f8fe8');
+  poly([[0,-22],[7,-6],[18,12],[9,10],[5,16],[-5,16],[-9,10],[-18,12],[-7,-6]],g,'#bfe6ff');
+  x.fillStyle='#10244a';x.beginPath();x.ellipse(0,-3,3.5,7,0,0,6.283);x.fill();x.fillStyle='#7fd4ff88';x.beginPath();x.ellipse(-1,-5,1.5,3,0,0,6.283);x.fill();x.restore();
+  x.globalCompositeOperation='lighter';gl('o',P.x,P.y+22,22,.5);x.globalCompositeOperation='source-over';
+  if(shield){x.strokeStyle='rgba(120,220,255,'+(.55+.25*Math.sin(t*8))+')';x.lineWidth=2.5;x.beginPath();x.arc(P.x,P.y,27,0,6.283);x.stroke()}}
+function draw(){
+  x.save();x.drawImage(BG,0,0);
+  x.fillStyle='#fff';for(const s of stars){x.globalAlpha=.25+s.s*.2;x.fillRect(s.x,s.y,s.s,s.s*(1+s.sp*.03))}x.globalAlpha=1;
+  if(shake)x.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
+  for(const p of PU){const c={w:'y',s:'c',h:'g'}[p.k],yy=p.y+Math.sin(t*5+p.x)*3;x.globalCompositeOperation='lighter';gl(c,p.x,yy,24,.9);x.globalCompositeOperation='source-over';
+    x.fillStyle='#fff';x.font='bold 15px system-ui';x.textAlign='center';x.fillText({w:'W',s:'S',h:'+'}[p.k],p.x,yy+5)}
+  for(const e of E)drawEnemy(e);
+  x.globalCompositeOperation='lighter';
+  for(const b of PB){gl('c',b.x,b.y,15,.9)}for(const b of EB){gl('r',b.x,b.y,13,.95)}
+  x.globalCompositeOperation='source-over';
+  x.fillStyle='#fff';for(const b of PB)x.fillRect(b.x-1.5,b.y-8,3,12);x.fillStyle='#ffd6d6';for(const b of EB){x.beginPath();x.arc(b.x,b.y,3.2,0,6.283);x.fill()}
+  if(state!=='over')drawPlayer();
+  x.globalCompositeOperation='lighter';
+  for(const p of PT){const a=p.l/p.m;if(p.ring){x.strokeStyle='rgba(255,200,120,'+a+')';x.lineWidth=3*a;x.beginPath();x.arc(p.x,p.y,p.r,0,6.283);x.stroke()}else gl(p.g,p.x,p.y,p.s*(.5+a),Math.min(1,a*1.5))}
+  x.globalCompositeOperation='source-over';x.restore();
+  x.drawImage(VG,0,0);
+  if(flash){x.fillStyle='rgba(255,60,60,'+Math.min(.4,flash*1.6)+')';x.fillRect(0,0,W,H)}
+  if(state!=='menu'){x.textAlign='left';x.fillStyle='#fff';x.font='bold 24px system-ui,sans-serif';x.fillText(sc,14,32);
+    x.font='11px system-ui,sans-serif';x.fillStyle='#9fb0d0';x.fillText('REKOR '+Math.max(hi,sc),14,48);
+    x.font='18px system-ui,sans-serif';x.fillStyle='#ff4d6d';for(let i=0;i<lives;i++)x.fillText('♥',14+i*20,72);
+    x.font='11px system-ui,sans-serif';x.fillStyle='#ffe164';x.fillText('SİLAH '+'▮'.repeat(wl),14,90);if(shield){x.fillStyle='#7fe0ff';x.fillText('KALKAN',90,90)}}
+}
+
+// ---------- Arayüz ve girdi ----------
+function showOv(h,p,b,fn){ov.style.display='flex';ov.innerHTML='<h1>'+h+'</h1><p>'+p+'</p><button>'+b+'</button>';ov.querySelector('button').onclick=()=>{initAudio();fn()}}
+function hideOv(){ov.style.display='none'}
+function pause(){if(state!=='play')return;firing=false;state='pause';showOv('Duraklatıldı','Oyun durdu.','Devam et',()=>{hideOv();state='play'})}
+function mv(e){if(state!=='play')return;e.preventDefault();const r=cv.getBoundingClientRect();P.tx=(e.clientX-r.left)*W/r.width;P.ty=(e.clientY-r.top)*H/r.height-(e.pointerType==='mouse'?0:70)}
+cv.addEventListener('pointerdown',e=>{try{cv.setPointerCapture(e.pointerId)}catch(_){}firing=true;mv(e)});
+addEventListener('pointerup',()=>firing=false);addEventListener('pointercancel',()=>firing=false);
+cv.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'||e.buttons)mv(e)});
+addEventListener('keydown',e=>{K[e.code]=1;if(e.code.startsWith('Arrow')||e.code==='Space')e.preventDefault();if(e.code==='Escape'||e.code==='KeyP')pause();if(e.code==='KeyM')muteB.onclick()});
+addEventListener('keyup',e=>K[e.code]=0);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();last=performance.now()});
+
+let last=0;
+function loop(ts){const dt=Math.min((ts-last)/1000||0,.05);last=ts;if(state==='play')update(dt);fx(dt);draw();requestAnimationFrame(loop)}
+P={x:W/2,y:520,tx:W/2,ty:520,inv:0};
+showOv('Yıldız Savaşı','Parmağınla sürükle ya da fare / WASD kullan. Ateş için tıkla veya basılı tut (Boşluk da çalışır). W, S ve + güçlendirmelerini topla.','Başla',start);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

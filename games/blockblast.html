@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="tr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Blok Patlat</title>
+<style>
+html,body{margin:0;height:100%;background:radial-gradient(circle at 50% 0,#2a2f6b,#0d0f24);font-family:system-ui,sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none}
+#w{position:relative;height:100%;aspect-ratio:2/3;max-width:100%;margin:auto}
+canvas{width:100%;height:100%;display:block;touch-action:none}
+#ov{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:#000b;color:#fff;text-align:center;animation:in .4s}
+#ov h1{margin:0 0 6px;font-size:36px}#ov p{margin:4px 0 16px;font-size:20px}
+#ov button{border:0;padding:12px 30px;border-radius:99px;background:linear-gradient(90deg,#7c5cff,#00e0ff);color:#fff;font-size:18px;font-weight:800;cursor:pointer}
+@keyframes in{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
+</style></head><body>
+<div id="w"><canvas id="c" width="360" height="540"></canvas>
+<div id="ov"><h1>Oyun Bitti!</h1><p id="fs"></p><button id="rs">Tekrar Oyna</button></div></div>
+<script>
+const $=id=>document.getElementById(id),cv=$('c'),x=cv.getContext('2d'),W=360,H=540,N=8,C=40,GX=20,GY=72;
+const COL=['#ff5c7a','#ffb84d','#ffe14d','#5cd65c','#4dc3ff','#8b6bff','#ff7bd5'];
+const SH=[[[1]],[[1,1]],[[1,1,1]],[[1,1,1,1]],[[1],[1]],[[1],[1],[1]],[[1],[1],[1],[1]],[[1,1],[1,1]],[[1,1,1],[1,1,1],[1,1,1]],
+[[1,0],[1,1]],[[0,1],[1,1]],[[1,1],[1,0]],[[1,1],[0,1]],[[1,0,0],[1,0,0],[1,1,1]],[[1,1,1],[1,0,0]],[[1,1,1],[0,0,1]],[[0,1,0],[1,1,1]],[[1,1,1],[0,1,0]]];
+let g,tray,drag,score,best=0,combo,fx,pts,pops,txt,over,shake=0,last=0;
+try{best=+localStorage.getItem('zk_bb')||0}catch(e){}
+const rnd=a=>a[Math.random()*a.length|0];
+function newGame(){g=Array.from({length:N},()=>Array(N).fill(0));score=0;combo=0;over=false;fx=[];pts=[];pops=[];txt=[];drag=null;refill();$('ov').style.display='none'}
+function refill(){tray=[0,1,2].map(()=>({m:rnd(SH),c:rnd(COL)}))}
+function fits(m,r,c){for(let i=0;i<m.length;i++)for(let j=0;j<m[0].length;j++)if(m[i][j]){const a=r+i,b=c+j;if(a<0||b<0||a>=N||b>=N||g[a][b])return false}return true}
+function any(m){for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(fits(m,r,c))return true;return false}
+function place(p,r,c){let n=0;p.m.forEach((row,i)=>row.forEach((v,j)=>{if(v){g[r+i][c+j]=p.c;pops.push({r:r+i,c:c+j,t:0});n++}}));score+=n;
+const clr=new Set();let L=0;
+for(let i=0;i<N;i++){if(g[i].every(v=>v)){L++;for(let j=0;j<N;j++)clr.add(i*N+j)}if(g.every(row=>row[i])){L++;for(let j=0;j<N;j++)clr.add(j*N+i)}}
+clr.forEach(k=>{const a=k/N|0,b=k%N;fx.push({r:a,c:b,col:g[a][b],t:0});for(let q=0;q<4;q++)pts.push({x:GX+b*C+20,y:GY+a*C+20,vx:(Math.random()-.5)*260,vy:-Math.random()*220,l:.7,col:g[a][b]});g[a][b]=0});
+if(L){combo++;const gain=L*L*10+(combo-1)*10;score+=gain;shake=Math.min(14,4+L*3);
+txt.push({x:180,y:GY+160,s:'+'+gain,l:1,sz:30});if(L>1)txt.push({x:180,y:GY+120,s:['','','Süper!','Harika!','Muhteşem!'][Math.min(L,4)],l:1.2,sz:34});if(combo>1)txt.push({x:180,y:GY+205,s:'Kombo x'+combo,l:1.2,sz:22})}else combo=0;
+if(score>best){best=score;try{localStorage.setItem('zk_bb',best)}catch(e){}}}
+function use(i){tray[i]=null;if(tray.every(p=>!p))refill();
+if(tray.every(p=>!p||!any(p.m))){over=true;setTimeout(()=>{$('fs').textContent='Skor: '+score+(score>=best&&score>0?' 🏆 Yeni rekor!':'  ·  Rekor: '+best);$('ov').style.display='flex'},500)}}
+function pos(){const m=tray[drag.i].m,px=drag.x-m[0].length*C/2,py=drag.y-m.length*C/2-60;return{r:Math.round((py-GY)/C),c:Math.round((px-GX)/C),px,py}}
+function xy(e){const b=cv.getBoundingClientRect();return{x:(e.clientX-b.left)*W/b.width,y:(e.clientY-b.top)*H/b.height}}
+cv.onpointerdown=e=>{if(over)return;const p=xy(e);if(p.y>400){const i=Math.min(2,p.x/120|0);if(tray[i]){drag={i,x:p.x,y:p.y};cv.setPointerCapture(e.pointerId)}}};
+cv.onpointermove=e=>{if(drag){const p=xy(e);drag.x=p.x;drag.y=p.y}};
+cv.onpointerup=()=>{if(!drag)return;const t=tray[drag.i],q=pos();if(fits(t.m,q.r,q.c)){place(t,q.r,q.c);use(drag.i)}drag=null};
+function cell(px,py,s,col,a){x.globalAlpha=a==null?1:a;const m=(C-s*C)/2,z=s*C-4;x.fillStyle=col;x.beginPath();x.roundRect(px+2+m,py+2+m,z,z,7*s);x.fill();x.fillStyle='#fff4';x.beginPath();x.roundRect(px+2+m+3,py+2+m+3,z-6,z*.3,4*s);x.fill();x.globalAlpha=1}
+function piece(m,col,px,py,sz){x.save();x.translate(px,py);x.scale(sz/C,sz/C);m.forEach((row,i)=>row.forEach((v,j)=>v&&cell(j*C,i*C,1,col)));x.restore()}
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;requestAnimationFrame(loop);
+fx.forEach(f=>f.t+=dt);fx=fx.filter(f=>f.t<.35);pops.forEach(p=>p.t+=dt);pops=pops.filter(p=>p.t<.2);
+pts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=600*dt;p.l-=dt});pts=pts.filter(p=>p.l>0);txt.forEach(o=>{o.y-=30*dt;o.l-=dt});txt=txt.filter(o=>o.l>0);shake=Math.max(0,shake-40*dt);
+x.clearRect(0,0,W,H);x.save();if(shake)x.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
+x.fillStyle='#fff9';x.font='bold 13px system-ui';x.textAlign='left';x.fillText('SKOR',20,26);x.fillText('REKOR',W-20-x.measureText('REKOR').width,26);
+x.fillStyle='#fff';x.font='bold 30px system-ui';x.fillText(score,20,58);const bs=''+best;x.fillText(bs,W-20-x.measureText(bs).width,58);
+x.fillStyle='#1b1f45';x.beginPath();x.roundRect(GX-6,GY-6,N*C+12,N*C+12,14);x.fill();
+let pv=null;if(drag){const q=pos(),t=tray[drag.i];if(fits(t.m,q.r,q.c))pv={q,t}}
+for(let r=0;r<N;r++)for(let c=0;c<N;c++){x.fillStyle='#262b5a';x.beginPath();x.roundRect(GX+c*C+2,GY+r*C+2,C-4,C-4,7);x.fill()}
+if(pv)pv.t.m.forEach((row,i)=>row.forEach((v,j)=>v&&cell(GX+(pv.q.c+j)*C,GY+(pv.q.r+i)*C,1,pv.t.c,.35)));
+for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(g[r][c]){const p=pops.find(o=>o.r==r&&o.c==c);cell(GX+c*C,GY+r*C,p?.55+.45*Math.min(1,p.t/.15)+(p.t<.15?0:0):1,g[r][c])}
+fx.forEach(f=>{const k=f.t/.35;cell(GX+f.c*C,GY+f.r*C,1+.25*Math.sin(k*3)-k*.9,'#fff',1-k)});
+pts.forEach(p=>{x.globalAlpha=Math.max(0,p.l/.7);x.fillStyle=p.col;x.fillRect(p.x-3,p.y-3,6,6)});x.globalAlpha=1;
+tray.forEach((p,i)=>{if(!p||(drag&&drag.i==i))return;const w=p.m[0].length*22,h=p.m.length*22;x.globalAlpha=any(p.m)?1:.3;piece(p.m,p.c,60+i*120-w/2,470-h/2,22);x.globalAlpha=1});
+if(drag){const q=pos(),t=tray[drag.i];piece(t.m,t.c,q.px,q.py,C)}
+txt.forEach(o=>{x.globalAlpha=Math.min(1,o.l);x.fillStyle='#fff';x.strokeStyle='#000a';x.lineWidth=5;x.font='900 '+o.sz+'px system-ui';x.textAlign='center';x.strokeText(o.s,o.x,o.y);x.fillText(o.s,o.x,o.y);x.globalAlpha=1});
+x.restore()}
+$('rs').onclick=newGame;newGame();requestAnimationFrame(loop);
+</script></body></html>

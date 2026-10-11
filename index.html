@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="tr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zokito – Ücretsiz Online Oyunlar</title>
+<meta name="description" content="Zokito'da kayıt olmadan, ücretsiz online oyunlar oyna. Tıkla ve hemen başla.">
+<meta property="og:title" content="Zokito – Ücretsiz Online Oyunlar">
+<meta property="og:description" content="Kayıt yok, ücret yok. Tıkla ve oyna.">
+<meta name="theme-color" content="#0b0d17">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+<style>
+:root{--bg:#0b0d17;--card:#171a2b;--fg:#eef0ff;--mut:#9aa0c3;--a1:#7c5cff;--a2:#00e0ff}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,sans-serif;padding-top:env(safe-area-inset-top,0)}
+header{position:sticky;top:0;z-index:5;background:#0b0d17ee;backdrop-filter:blur(8px);padding:12px 5vw;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:1px solid #ffffff14}
+.logo{font-size:28px;font-weight:900;letter-spacing:2px;background:linear-gradient(90deg,var(--a1),var(--a2));-webkit-background-clip:text;background-clip:text;color:transparent;cursor:pointer}
+#q{flex:1;min-width:150px;max-width:420px;padding:10px 16px;border-radius:99px;border:1px solid #ffffff22;background:var(--card);color:var(--fg);font-size:15px;outline:none}
+#q:focus{border-color:var(--a2)}
+nav{width:100%;display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
+.chip{border:0;padding:8px 16px;border-radius:99px;background:var(--card);color:var(--mut);cursor:pointer;font-size:14px;white-space:nowrap}
+.chip.on{background:linear-gradient(90deg,var(--a1),var(--a2));color:#fff;font-weight:700}
+main{padding:18px 5vw 40px;max-width:1300px;margin:auto}
+#hero{display:none;position:relative;border-radius:20px;overflow:hidden;min-height:260px;margin-bottom:26px;align-items:flex-end;background-size:cover;background-position:center;box-shadow:0 8px 40px #7c5cff44}
+#hero .in{padding:26px;background:linear-gradient(0deg,#000c,#0000);width:100%}
+#hero .em{position:absolute;right:6%;top:50%;transform:translateY(-50%);font-size:min(30vw,170px);opacity:.9}
+#hero h2{margin:0 0 6px;font-size:clamp(24px,5vw,40px)}#hero p{margin:0 0 14px;color:#dde}
+.play{border:0;padding:12px 28px;border-radius:99px;background:linear-gradient(90deg,var(--a1),var(--a2));color:#fff;font-weight:800;font-size:16px;cursor:pointer}
+.play:hover{filter:brightness(1.15)}
+h3{margin:26px 0 12px;font-size:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:16px}
+.g{position:relative;background:var(--card);border-radius:16px;overflow:hidden;cursor:pointer;border:1px solid #ffffff10;color:inherit;text-align:left;padding:0;transition:transform .18s,box-shadow .18s}
+.g:hover{transform:translateY(-5px) scale(1.03);box-shadow:0 8px 28px #7c5cff55}
+.th{height:115px;display:flex;align-items:center;justify-content:center;font-size:56px;background-size:cover;background-position:center}
+.g b{display:block;padding:10px 12px 2px}.g small{display:block;padding:0 12px 12px;color:var(--mut)}
+.tag{position:absolute;left:8px;top:8px;background:#000a;padding:3px 9px;border-radius:99px;font-size:11px}
+.fv{position:absolute;right:6px;top:6px;border:0;background:#000a;color:#fff;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:15px}
+.empty{text-align:center;color:var(--mut);padding:60px 10px}
+#modal{position:fixed;inset:0;background:#000e;display:none;flex-direction:column;z-index:20}
+#bar{display:flex;align-items:center;gap:8px;padding:8px 14px}
+#bar b{flex:1;font-size:18px}
+#bar button{border:0;border-radius:8px;padding:8px 14px;font-size:15px;cursor:pointer;background:var(--card);color:#fff}
+#x{background:#e44!important}
+#fr{flex:1;border:0;width:100%;background:#000}
+footer{text-align:center;color:var(--mut);padding:30px 10px}
+</style></head><body>
+<header><div class="logo" onclick="reset()">ZOKITO</div><input id="q" placeholder="Oyun ara..."><nav id="nav"></nav></header>
+<main>
+<div id="hero"><span class="em" id="hem"></span><div class="in"><h2 id="ht"></h2><p id="hd"></p><button class="play" id="hp">▶ Hemen Oyna</button></div></div>
+<div id="secs"><section id="s-new"><h3>🆕 Yeni Oyunlar</h3><div class="grid" id="g-new"></div></section>
+<section id="s-pop"><h3>🔥 Popüler</h3><div class="grid" id="g-pop"></div></section></div>
+<section><h3 id="allt">🎮 Tüm Oyunlar</h3><div class="grid" id="grid"></div><div class="empty" id="empty">Bu aramada oyun bulunamadı.</div></section>
+</main>
+<footer>© Zokito · Kayıt yok, ücret yok. Sadece oyna. 🕹️</footer>
+<div id="modal"><div id="bar"><b id="gt"></b><button id="fav">☆ Favori</button><button id="fs">⛶ Tam Ekran</button><button id="x">✕ Kapat</button></div><iframe id="fr" allow="fullscreen; autoplay" allowfullscreen></iframe></div>
+<script>
+/* ===== OYUN EKLEME =====
+ Oyun dosyasını "games" klasörüne koy, aşağıya bir satır ekle (en yeni en sona):
+ {name:'Oyun Adı', file:'games/oyun.html', emoji:'🎯', color:'#6a9a4a', desc:'Kısa açıklama', cat:'Aksiyon', featured:true},
+ Kapak resmi için emoji yerine: image:'games/kapak.jpg'
+ Kategoriler otomatik oluşur (cat: 'Aksiyon', 'Bulmaca', 'Arcade' ...). featured:true olan en yeni oyun üstte büyük çıkar. */
+const GAMES=[
+{name:'Zombi Kıyameti',file:'games/zombi.html',emoji:'🧟',color:'#4f7a38',desc:'Zombilere karşı hayatta kal, silahını geliştir!',cat:'Aksiyon'},
+{name:'Blok Patlat',file:'games/blockblast.html',emoji:'🧩',color:'#5b3fd1',desc:'Blokları yerleştir, satırları patlat, kombo yap!',cat:'Bulmaca',featured:true},
+];
+const $=id=>document.getElementById(id);let cat='Hepsi',cur=null;
+const ld=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}},sv=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+let plays=ld('zk_plays',{}),favs=ld('zk_favs',[]);
+function card(o,tag){const b=document.createElement('div');b.className='g';
+const bg=o.image?`background-image:url('${o.image}')`:`background:${o.color||'#5b5bf0'}`;
+b.innerHTML=`<div class="th" style="${bg}">${o.image?'':(o.emoji||'🎮')}</div><b></b><small></small>${tag?`<span class="tag">${tag}</span>`:''}<button class="fv">${favs.includes(o.name)?'★':'☆'}</button>`;
+b.querySelector('b').textContent=o.name;b.querySelector('small').textContent=o.desc||o.cat||'';
+b.onclick=e=>{if(e.target.className=='fv'){e.stopPropagation();tog(o.name);return}start(o)};return b}
+function tog(n){favs=favs.includes(n)?favs.filter(x=>x!=n):[...favs,n];sv('zk_favs',favs);render()}
+function fill(id,list,tagf){const g=$(id);g.innerHTML='';list.forEach(o=>g.appendChild(card(o,tagf&&tagf(o))));g.parentElement.style.display=list.length?'block':'none'}
+function render(){const f=$('q').value.trim().toLowerCase(),cats=['Hepsi',...new Set(GAMES.map(g=>g.cat).filter(Boolean)),'Favoriler'];
+$('nav').innerHTML='';cats.forEach(c=>{const b=document.createElement('button');b.className='chip'+(c==cat?' on':'');b.textContent=c=='Favoriler'?'★ Favoriler':c;b.onclick=()=>{cat=c;render()};$('nav').appendChild(b)});
+let list=GAMES.filter(o=>o.name.toLowerCase().includes(f)&&(cat=='Hepsi'||(cat=='Favoriler'?favs.includes(o.name):o.cat==cat)));
+const home=!f&&cat=='Hepsi',ft=[...GAMES].reverse().find(o=>o.featured);
+$('hero').style.display=home&&ft?'flex':'none';$('secs').style.display=home?'block':'none';
+if(home&&ft){const h=$('hero');h.style.background=ft.image?`url('${ft.image}') center/cover`:`linear-gradient(120deg,${ft.color||'#5b5bf0'},#0b0d17)`;$('hem').textContent=ft.image?'':ft.emoji||'';$('ht').textContent=ft.name;$('hd').textContent=ft.desc||'';$('hp').onclick=()=>start(ft)}
+if(home){fill('g-new',[...GAMES].reverse().slice(0,6),()=>'YENİ');fill('g-pop',[...GAMES].sort((a,b)=>(plays[b.name]||0)-(plays[a.name]||0)).filter(o=>plays[o.name]).slice(0,6),o=>'🔥 '+plays[o.name])}
+$('allt').textContent=home?'🎮 Tüm Oyunlar':'🔎 Sonuçlar';$('grid').innerHTML='';list.forEach(o=>$('grid').appendChild(card(o)));
+$('empty').style.display=list.length?'none':'block';$('empty').textContent=GAMES.length?'Bu aramada oyun bulunamadı.':'Henüz oyun yok. index.html içindeki GAMES listesine oyunlarını ekle.'}
+function start(o){cur=o;pp=rid();pg=o.name;ps=0;ping('p',pp,pg,0);plays[o.name]=(plays[o.name]||0)+1;sv('zk_plays',plays);$('gt').textContent=o.emoji+' '+o.name;$('fr').src=o.file;$('modal').style.display='flex';favbtn()}
+function favbtn(){$('fav').textContent=favs.includes(cur.name)?'★ Favoride':'☆ Favori'}
+$('fav').onclick=()=>{tog(cur.name);favbtn()};
+$('fs').onclick=()=>{const f=$('fr');(f.requestFullscreen||f.webkitRequestFullscreen||(()=>{})).call(f)};
+$('x').onclick=()=>{if(pp){ping('p',pp,pg,ps);pp=null}$('fr').src='about:blank';$('modal').style.display='none';render()};
+addEventListener('keydown',e=>{if(e.key=='Escape'&&$('modal').style.display=='flex')$('x').click()});
+function reset(){$('q').value='';cat='Hepsi';render();scrollTo(0,0)}
+$('q').oninput=render;render();
+/* ===== İSTATİSTİK (api/track.php'ye gönderir) ===== */
+const rid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+let vid;try{vid=localStorage.getItem('zk_vid');if(!vid){vid=rid();localStorage.setItem('zk_vid',vid)}}catch(e){vid=rid()}
+const sp=rid();let ss=0,ps=0,pp=null,pg='';
+function ping(kind,pid,game,sec){try{navigator.sendBeacon('api/track.php',new URLSearchParams({kind,pid,vid,game,sec}))}catch(e){}}
+function sendAll(){ping('v',sp,'',ss);if(pp)ping('p',pp,pg,ps)}
+setInterval(()=>{if(!document.hidden){ss++;if(pp)ps++}},1000);
+setInterval(()=>{if(!document.hidden)sendAll()},15000);
+addEventListener('pagehide',sendAll);sendAll();
+</script></body></html>
